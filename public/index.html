@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Тактик AI — Анализ футбольных матчей</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0b160b; --chalk:#e2ece2; --gold:#c9a227; --gold-l:#f0c93a; --gold-d:#7a5f10;
+  --muted:#5a7a5a; --border:rgba(180,230,180,0.09); --card:rgba(255,255,255,0.03);
+  --r:7px; --red:#b53030; --blue:#2a6090; --green-ok:#2d7a2d;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--ink);color:var(--chalk);font-family:'Inter',sans-serif;font-size:15px;line-height:1.65;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    repeating-linear-gradient(90deg,transparent,transparent 99px,rgba(255,255,255,.016) 99px,rgba(255,255,255,.016) 100px),
+    repeating-linear-gradient(0deg,transparent,transparent 99px,rgba(255,255,255,.016) 99px,rgba(255,255,255,.016) 100px)}
+.wrap{position:relative;z-index:1;max-width:920px;margin:0 auto;padding:0 20px 100px}
+
+/* ── HEADER ── */
+header{padding:38px 0 28px;display:flex;align-items:center;gap:16px;border-bottom:1px solid var(--border);margin-bottom:38px}
+.logo-ball{width:52px;height:52px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;box-shadow:0 0 28px rgba(201,162,39,.35)}
+.logo-text h1{font-family:'Bebas Neue',sans-serif;font-size:2.3rem;letter-spacing:.07em;line-height:1}
+.logo-text p{font-size:.67rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-top:3px}
+
+/* ── FORM ── */
+.form-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:30px 34px;margin-bottom:28px}
+.form-title{font-family:'Bebas Neue',sans-serif;font-size:1.02rem;letter-spacing:.15em;color:var(--gold);margin-bottom:22px;text-transform:uppercase}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.r3{display:grid;grid-template-columns:1fr 1fr 152px;gap:14px;margin-bottom:14px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:.67rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.field input,.field textarea{
+  background:rgba(255,255,255,.04);border:1px solid rgba(180,230,180,.11);border-radius:var(--r);
+  color:var(--chalk);font-family:'Inter',sans-serif;font-size:.93rem;padding:9px 13px;
+  outline:none;transition:border-color .18s;width:100%}
+.field input::placeholder,.field textarea::placeholder{color:var(--muted)}
+.field input:focus,.field textarea:focus{border-color:var(--gold)}
+.field textarea{resize:vertical;min-height:72px;font-size:.84rem}
+.hint{display:inline-flex;align-items:center;gap:5px;margin-top:6px;
+  background:rgba(201,162,39,.1);border:1px solid rgba(201,162,39,.22);border-radius:4px;
+  padding:3px 10px;font-size:.68rem;letter-spacing:.09em;color:var(--gold);width:fit-content}
+
+.btn-row{display:flex;gap:12px;margin-top:22px}
+.btn{flex:1;padding:13px 20px;border:none;border-radius:var(--r);font-family:'Bebas Neue',sans-serif;
+  font-size:1.1rem;letter-spacing:.1em;cursor:pointer;transition:background .18s,transform .1s}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:var(--gold);color:var(--ink)}
+.btn-primary:hover{background:var(--gold-l)}
+.btn-primary:disabled{background:var(--gold-d);cursor:not-allowed;transform:none}
+.btn-ghost{background:rgba(255,255,255,.05);color:var(--chalk);border:1px solid var(--border);flex:0 0 auto;padding:13px 20px}
+.btn-ghost:hover{background:rgba(255,255,255,.09)}
+
+.err{background:rgba(181,48,48,.12);border:1px solid rgba(181,48,48,.3);border-radius:var(--r);
+  padding:13px 17px;color:#e07070;font-size:.87rem;display:none;margin-top:14px}
+
+/* ── LOADING ── */
+#loading{display:none;padding:56px 20px;text-align:center}
+.spinner{width:48px;height:48px;border:3px solid rgba(255,255,255,.07);border-top-color:var(--gold);
+  border-radius:50%;animation:spin .85s linear infinite;margin:0 auto 18px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-label{color:var(--muted);font-size:.9rem;margin-bottom:20px}
+.steps{list-style:none;max-width:340px;margin:0 auto;text-align:left}
+.steps li{font-size:.82rem;color:var(--muted);padding:5px 0 5px 24px;position:relative;transition:color .3s}
+.steps li::before{content:'○';position:absolute;left:0;transition:color .3s}
+.steps li.done{color:#7ad87a}.steps li.done::before{content:'✓';color:#7ad87a}
+.steps li.act{color:var(--gold)}.steps li.act::before{content:'●';color:var(--gold);animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ── RESULT ── */
+#result{display:none}
+
+.match-banner{background:linear-gradient(135deg,rgba(201,162,39,.13),rgba(201,162,39,.04));
+  border:1px solid rgba(201,162,39,.22);border-radius:12px;padding:26px 32px;margin-bottom:18px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.tbadge{text-align:center;flex:1;min-width:90px}
+.tname{font-family:'Bebas Neue',sans-serif;font-size:1.65rem;letter-spacing:.05em;line-height:1}
+.tmeta{font-size:.72rem;color:var(--muted);margin-top:4px}
+.vs{font-family:'Bebas Neue',sans-serif;font-size:2.1rem;color:var(--gold);letter-spacing:.1em;flex-shrink:0}
+.info-line{text-align:center;font-size:.74rem;color:var(--muted);letter-spacing:.09em;margin-bottom:20px}
+
+/* VERDICT */
+.verdict{background:linear-gradient(135deg,rgba(201,162,39,.18),rgba(201,162,39,.06));
+  border:1px solid rgba(201,162,39,.38);border-radius:12px;padding:24px 28px;margin-bottom:18px}
+.v-label{font-family:'Bebas Neue',sans-serif;font-size:.78rem;letter-spacing:.22em;color:var(--gold);margin-bottom:9px}
+.v-main{font-size:1.18rem;font-weight:700;color:var(--chalk);margin-bottom:6px}
+.v-reason{font-size:.87rem;color:#bdd8bd;margin-bottom:12px}
+.vtags{display:flex;flex-wrap:wrap;gap:8px}
+.vt{display:inline-flex;align-items:center;gap:5px;padding:5px 13px;border-radius:5px;font-size:.78rem;font-weight:600;letter-spacing:.04em}
+.vt-main{background:rgba(201,162,39,.18);border:1px solid rgba(201,162,39,.38);color:var(--gold-l)}
+.vt-alt{background:rgba(42,96,144,.2);border:1px solid rgba(42,96,144,.4);color:#82bfe8}
+.vt-stake{background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--chalk)}
+.vt-low{background:rgba(45,122,45,.2);border:1px solid rgba(45,122,45,.4);color:#7ad87a}
+.vt-mid{background:rgba(180,130,0,.2);border:1px solid rgba(180,130,0,.4);color:#e8c050}
+.vt-high{background:rgba(181,48,48,.2);border:1px solid rgba(181,48,48,.4);color:#e07070}
+
+/* SECTIONS */
+.sections{display:flex;flex-direction:column;gap:4px;margin-top:4px}
+.sb{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.sb-btn{width:100%;background:var(--card);border:none;color:var(--chalk);padding:14px 18px;
+  text-align:left;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+  gap:10px;transition:background .15s;font-family:'Inter',sans-serif}
+.sb-btn:hover{background:rgba(255,255,255,.05)}
+.sb-title{font-family:'Bebas Neue',sans-serif;font-size:.97rem;letter-spacing:.1em;color:var(--gold)}
+.sb-arrow{font-size:.75rem;color:var(--muted);transition:transform .2s}
+.sb-btn.open .sb-arrow{transform:rotate(180deg)}
+.sb-body{display:none;padding:18px 22px;border-top:1px solid var(--border);background:rgba(0,0,0,.18);
+  color:#bdd8bd;font-size:.88rem;line-height:1.82}
+.sb-body.open{display:block}
+.sb-body h3{font-family:'Bebas Neue',sans-serif;font-size:.92rem;letter-spacing:.08em;color:var(--chalk);margin:14px 0 5px}
+.sb-body h3:first-child{margin-top:0}
+.sb-body strong{color:var(--gold);font-weight:600}
+.sb-body em{color:var(--muted)}
+.sb-body ul{padding-left:16px;margin:5px 0}
+.sb-body li{margin-bottom:3px}
+.sb-body p{margin-bottom:8px}
+.sb-body p:last-child{margin-bottom:0}
+.sb-body table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.82rem}
+.sb-body th{background:rgba(201,162,39,.1);color:var(--gold);padding:7px 10px;text-align:left;
+  font-weight:600;border:1px solid var(--border)}
+.sb-body td{padding:6px 10px;border:1px solid var(--border)}
+.sb-body tr:nth-child(even) td{background:rgba(255,255,255,.028)}
+
+/* Odds grid inside section */
+.odds-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.oc{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:6px;padding:10px 12px;text-align:center}
+.oc-lbl{font-size:.67rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px}
+.oc-val{font-size:1.22rem;font-weight:700;color:var(--gold)}
+.oc.vbet{border-color:rgba(201,162,39,.48);background:rgba(201,162,39,.1)}
+.oc.vbet .oc-val{color:var(--gold-l)}
+.oc.vbet .oc-lbl::after{content:' 🔥'}
+
+/* W/D/L badges */
+.bw{display:inline-block;background:rgba(45,122,45,.3);color:#7ad87a;border-radius:3px;padding:1px 5px;font-size:.74rem;font-weight:700}
+.bd{display:inline-block;background:rgba(100,100,100,.3);color:#aaa;border-radius:3px;padding:1px 5px;font-size:.74rem;font-weight:700}
+.bl{display:inline-block;background:rgba(181,48,48,.3);color:#e07070;border-radius:3px;padding:1px 5px;font-size:.74rem;font-weight:700}
+
+footer{margin-top:64px;padding-top:20px;border-top:1px solid var(--border);text-align:center;
+  font-size:.69rem;color:var(--muted);letter-spacing:.07em}
+
+@media(max-width:640px){
+  .r2,.r3,.btn-row{grid-template-columns:1fr}
+  .match-banner{flex-direction:column;text-align:center}
+  .odds-grid{grid-template-columns:1fr 1fr}
+  .form-card{padding:18px 16px}
+}
+@media(prefers-reduced-motion:reduce){.spinner{animation:none;border-top-color:var(--gold)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="logo-ball">⚽</div>
+  <div class="logo-text">
+    <h1>Тактик AI</h1>
+    <p>Углублённый анализ матчей · AI + веб-поиск в реальном времени</p>
+  </div>
+</header>
+
+<div class="form-card">
+  <div class="form-title">▶ Параметры матча</div>
+
+  <div class="r2">
+    <div class="field">
+      <label>Команда 1 — Хозяева</label>
+      <input type="text" id="team1" placeholder="Зенит, Реал Мадрид…" autocomplete="off"/>
+    </div>
+    <div class="field">
+      <label>Команда 2 — Гости</label>
+      <input type="text" id="team2" placeholder="Спартак, Барселона…" autocomplete="off"/>
+    </div>
+  </div>
+
+  <div class="r3">
+    <div class="field">
+      <label>Дата матча</label>
+      <input type="date" id="matchDate"/>
+    </div>
+    <div class="field">
+      <label>Лига / Турнир</label>
+      <input type="text" id="league" placeholder="РПЛ, Ла Лига, ЛЧ…"/>
+    </div>
+    <div class="field">
+      <label>Время (МСК)</label>
+      <input type="time" id="matchTime"/>
+    </div>
+  </div>
+
+  <div class="field" style="margin-top:14px">
+    <label>Коэффициенты Фонбет (необязательно — найдём автоматически)</label>
+    <textarea id="odds" placeholder="П1: 1.85 · Х: 3.50 · П2: 4.20&#10;Тотал б2.5: 1.78 · м2.5: 1.96&#10;Фора П1 −1: 2.85"></textarea>
+    <span class="hint">🔍 Если поле пустое — бот сам найдёт коэффициенты на Фонбет</span>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" id="btnAnalyze" onclick="go()">⚡ Запустить анализ</button>
+    <button class="btn btn-ghost" onclick="reset()">✕</button>
+  </div>
+
+  <div class="err" id="err"></div>
+</div>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div class="load-label">Анализируем матч — 30–60 секунд…</div>
+  <ul class="steps" id="steps">
+    <li id="s1">Поиск коэффициентов Фонбет</li>
+    <li id="s2">Форма команд, последние результаты</li>
+    <li id="s3">История личных встреч H2H</li>
+    <li id="s4">Травмы, составы, свежие новости</li>
+    <li id="s5">Тактический разбор и прогноз</li>
+  </ul>
+</div>
+
+<div id="result"></div>
+
+</div>
+<footer>Тактик AI · Анализ носит исключительно информационный характер · Ставки — ваша ответственность</footer>
+
+<script>
+// ── Loading animation ──────────────────────────────────────────────────────
+let _st = null, _si = 0;
+const STEP_IDS = ['s1','s2','s3','s4','s5'];
+
+function startSteps() {
+  _si = 0;
+  STEP_IDS.forEach(id => document.getElementById(id).className = '');
+  _st = setInterval(() => {
+    if (_si > 0) document.getElementById(STEP_IDS[_si-1]).className = 'done';
+    if (_si < STEP_IDS.length) { document.getElementById(STEP_IDS[_si]).className = 'act'; _si++; }
+    else clearInterval(_st);
+  }, 9000);
+}
+function stopSteps() {
+  clearInterval(_st);
+  STEP_IDS.forEach(id => document.getElementById(id).className = 'done');
+}
+
+function setLoading(on) {
+  document.getElementById('loading').style.display = on ? 'block' : 'none';
+  document.getElementById('btnAnalyze').disabled = on;
+  if (on) { document.getElementById('result').style.display = 'none'; document.getElementById('err').style.display = 'none'; startSteps(); }
+  else stopSteps();
+}
+
+function showErr(msg) {
+  const el = document.getElementById('err');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+
+function reset() {
+  ['team1','team2','league','matchTime','odds'].forEach(id => document.getElementById(id).value = '');
+  const d = new Date(); d.setDate(d.getDate()+1);
+  document.getElementById('matchDate').value = d.toISOString().split('T')[0];
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('err').style.display = 'none';
+}
+
+// ── Section accordion ──────────────────────────────────────────────────────
+function tog(btn) {
+  const open = btn.classList.toggle('open');
+  btn.nextElementSibling.classList.toggle('open', open);
+}
+
+// ── Markdown → HTML ────────────────────────────────────────────────────────
+function mdInline(t) {
+  return t
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,     '<em>$1</em>')
+    .replace(/`(.+?)`/g,       '<code>$1</code>');
+}
+
+function md(text) {
+  if (!text) return '';
+  // Markdown tables
+  text = text.replace(/(\|.+\|[ \t]*\n?)+/g, block => {
+    const rows = block.trim().split('\n').filter(r => r.trim() && !/^\|[\s\-:|]+\|$/.test(r.trim()));
+    if (!rows.length) return block;
+    const hasHead = block.includes('|---') || block.includes('| --') || block.includes('|:');
+    let h = '<table>';
+    rows.forEach((row, ri) => {
+      const cells = row.split('|').map(c => c.trim()).filter(c => c !== '');
+      const tag = (ri === 0 && hasHead) ? 'th' : 'td';
+      h += '<tr>' + cells.map(c => `<${tag}>${mdInline(c)}</${tag}>`).join('') + '</tr>';
+    });
+    return h + '</table>';
+  });
+  // Headers
+  text = text.replace(/^#{1,4}\s+(.+)$/gm, (_,t) => `<h3>${mdInline(t)}</h3>`);
+  // Bullets / numbered
+  text = text.replace(/^[\-\*]\s+(.+)$/gm, (_,t) => `<li>${mdInline(t)}</li>`);
+  text = text.replace(/^\d+[.)]\s+(.+)$/gm, (_,t) => `<li>${mdInline(t)}</li>`);
+  text = text.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, m => `<ul>${m}</ul>`);
+  // Paragraphs
+  text = text.split(/\n{2,}/).map(p => {
+    p = p.trim(); if (!p) return '';
+    if (/^<(h[1-6]|ul|ol|table|tr|th|td)/.test(p)) return p;
+    return `<p>${mdInline(p.replace(/\n/g,'<br>'))}</p>`;
+  }).join('\n');
+  return text;
+}
+
+// ── Odds grid ──────────────────────────────────────────────────────────────
+function oddsGrid(ot) {
+  if (!ot) return '';
+  const cells = [
+    ['П1',       ot.w1,       ot.w1_value],
+    ['Ничья',    ot.draw,     ot.draw_value],
+    ['П2',       ot.w2,       ot.w2_value],
+    ['Тотал б2.5',ot.over25,  ot.over25_value],
+    ['Тотал м2.5',ot.under25, ot.under25_value],
+    ['Фора П1',  ot.handicap1,ot.handicap1_value],
+    ['Фора П2',  ot.handicap2,ot.handicap2_value],
+  ].filter(([,v]) => v);
+  if (!cells.length) return '';
+  return '<div class="odds-grid">' + cells.map(([l,v,isV]) =>
+    `<div class="oc${isV?' vbet':''}"><div class="oc-lbl">${l}</div><div class="oc-val">${v}</div></div>`
+  ).join('') + '</div>';
+}
+
+// ── Build full result HTML ─────────────────────────────────────────────────
+function buildHTML(data, team1, team2, matchDate, league, matchTime) {
+  const dateStr = matchDate
+    ? new Date(matchDate).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'}) : '';
+  const infoLine = [dateStr, matchTime?matchTime+' МСК':'', league].filter(Boolean).join(' · ');
+
+  const SECS = [
+    { k:'motivation',    ico:'📊', t:'Мотивация и турнирная ситуация' },
+    { k:'form',          ico:'📈', t:'Форма команд — последние 10 матчей' },
+    { k:'h2h',           ico:'🔄', t:'История личных встреч (H2H)' },
+    { k:'lineups',       ico:'👥', t:'Составы и кадровые проблемы' },
+    { k:'tactics',       ico:'🧠', t:'Тактический разбор' },
+    { k:'odds_analysis', ico:'💰', t:'Коэффициенты и валуйные ставки' },
+    { k:'prediction',    ico:'🏆', t:'Прогноз и рекомендация' },
+  ];
+
+  // Verdict
+  const P = data.prediction || {};
+  const rCls = {Низкий:'vt-low',Средний:'vt-mid',Высокий:'vt-high'}[P.risk] || 'vt-mid';
+  const verdict = `
+    <div class="verdict">
+      <div class="v-label">⚡ Итоговый вердикт</div>
+      <div class="v-main">${P.outcome_text || '—'}</div>
+      ${P.reasoning ? `<div class="v-reason">${P.reasoning}</div>` : ''}
+      <div class="vtags">
+        ${P.main_bet ? `<span class="vt vt-main">🎯 ${P.main_bet}${P.main_odds?' @ '+P.main_odds:''}</span>` : ''}
+        ${P.alt_bet  ? `<span class="vt vt-alt">🔀 ${P.alt_bet}${P.alt_odds?' @ '+P.alt_odds:''}</span>` : ''}
+        ${P.stake    ? `<span class="vt vt-stake">💼 ${P.stake}% банка</span>` : ''}
+        ${P.risk     ? `<span class="vt ${rCls}">Риск: ${P.risk}</span>` : ''}
+      </div>
+    </div>`;
+
+  // Sections
+  const secs = SECS.map((s, i) => {
+    let body = '';
+    if (s.k === 'odds_analysis') {
+      const od = data.odds_analysis || {};
+      body = oddsGrid(od.odds_table) + md(od.analysis_text || '');
+    } else if (s.k === 'prediction') {
+      const p = data.prediction || {};
+      body = md(p.full_text || [
+        p.outcome_text, p.reasoning,
+        p.main_bet ? `**Основная ставка:** ${p.main_bet}${p.main_odds?' @ '+p.main_odds:''}` : '',
+        p.main_reasoning,
+        p.alt_bet  ? `**Альтернативная ставка:** ${p.alt_bet}${p.alt_odds?' @ '+p.alt_odds:''}` : '',
+        p.alt_reasoning,
+        p.stake ? `**Размер ставки:** ${p.stake}% от банка` : '',
+        p.risk  ? `**Уровень риска:** ${p.risk}` : '',
+      ].filter(Boolean).join('\n\n'));
+    } else {
+      body = md(data[s.k] || '');
+    }
+    if (!body.trim()) body = '<em style="color:var(--muted)">Данных по разделу не найдено.</em>';
+    const open = i === 0;
+    return `
+      <div class="sb">
+        <button class="sb-btn${open?' open':''}" onclick="tog(this)">
+          <span class="sb-title">${s.ico} ${s.t}</span>
+          <span class="sb-arrow">${open?'▲':'▼'}</span>
+        </button>
+        <div class="sb-body${open?' open':''}">${body}</div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="match-banner">
+      <div class="tbadge"><div class="tname">${team1}</div><div class="tmeta">Хозяева</div></div>
+      <div class="vs">VS</div>
+      <div class="tbadge"><div class="tname">${team2}</div><div class="tmeta">Гости</div></div>
+    </div>
+    ${infoLine?`<div class="info-line">${infoLine}</div>`:''}
+    ${verdict}
+    <div class="sections">${secs}</div>`;
+}
+
+// ── Main ───────────────────────────────────────────────────────────────────
+async function go() {
+  const team1     = document.getElementById('team1').value.trim();
+  const team2     = document.getElementById('team2').value.trim();
+  const matchDate = document.getElementById('matchDate').value;
+  const league    = document.getElementById('league').value.trim();
+  const matchTime = document.getElementById('matchTime').value;
+  const oddsText  = document.getElementById('odds').value.trim();
+
+  if (!team1 || !team2) { showErr('Введите названия обеих команд.'); return; }
+
+  setLoading(true);
+
+  try {
+    const resp = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ team1, team2, matchDate, league, matchTime, oddsText }),
+    });
+
+    const json = await resp.json();
+    if (!resp.ok || !json.ok) throw new Error(json.error || `HTTP ${resp.status}`);
+
+    const el = document.getElementById('result');
+    el.innerHTML = buildHTML(json.data, team1, team2, matchDate, league, matchTime);
+    el.style.display = 'block';
+    setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+
+  } catch(e) {
+    showErr(e.message || 'Ошибка соединения. Попробуйте ещё раз.');
+  } finally {
+    setLoading(false);
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.tagName === 'INPUT') go();
+});
+
+// Default date = tomorrow
+const d = new Date(); d.setDate(d.getDate()+1);
+document.getElementById('matchDate').value = d.toISOString().split('T')[0];
+</script>
+</body>
+</html>
