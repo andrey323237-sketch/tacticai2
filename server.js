@@ -1,4 +1,8 @@
-require('dotenv').config();
+// Загружаем .env только для локальной разработки
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
+
 const express = require('express');
 const fetch   = require('node-fetch');
 const path    = require('path');
