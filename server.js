@@ -10,10 +10,16 @@ const path    = require('path');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+// Логи для диагностики Railway
+console.log("🚀 Starting server...");
+console.log("PORT:", PORT);
+console.log("NODE_ENV:", process.env.NODE_ENV);
+console.log("API Key exists:", !!process.env.ANTHROPIC_API_KEY);
+
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Rate limit: max 10 requests / hour per IP (generous for the use case) ──
+// ── Rate limit: max 10 requests / hour per IP ──
 const ipLog = new Map();
 function rateLimit(req, res, next) {
   const ip  = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
@@ -28,6 +34,9 @@ function rateLimit(req, res, next) {
   }
   next();
 }
+
+// ── Health check для Railway ──
+app.get('/health', (_, res) => res.status(200).json({ ok: true }));
 
 // ── Main proxy endpoint ─────────────────────────────────────────────────────
 app.post('/api/analyze', rateLimit, async (req, res) => {
@@ -137,11 +146,9 @@ ${oddsText ? 'Коэффициенты (уже известны):\n' + oddsText 
 
     const data = await upstream.json();
 
-    // Collect text blocks (model may interleave tool_use and text)
     const texts = (data.content || []).filter(b => b.type === 'text').map(b => b.text);
     if (!texts.length) return res.status(502).json({ error: 'Модель не вернула текст.' });
 
-    // Find valid JSON in the last text block
     let parsed = null;
     for (let i = texts.length - 1; i >= 0; i--) {
       const raw   = texts[i].trim();
@@ -152,7 +159,6 @@ ${oddsText ? 'Коэффициенты (уже известны):\n' + oddsText 
     }
 
     if (!parsed) {
-      // Graceful fallback
       parsed = {
         motivation: '', form: '', h2h: '', lineups: '', tactics: '',
         odds_analysis: { odds_table: {}, analysis_text: '' },
@@ -175,4 +181,7 @@ ${oddsText ? 'Коэффициенты (уже известны):\n' + oddsText 
 // SPA fallback
 app.get('*', (_, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-app.listen(PORT, () => console.log(`✅ TacticAI запущен на http://localhost:${PORT}`));
+// 🔥 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: слушаем на 0.0.0.0 для Railway
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ TacticAI запущен на http://0.0.0.0:${PORT}`);
+});
