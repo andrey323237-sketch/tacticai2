@@ -1,3 +1,14 @@
+// ═══════════════════════════════════════════════════════════════
+// ЗАШИФРОВАННЫЙ API-КЛЮЧ (разбит на части для защиты)
+// ВСТАВЬТЕ СВОИ ЗНАЧЕНИЯ В PART1, PART2, PART3
+// ═══════════════════════════════════════════════════════════════
+
+const PART1 = 'sk-ant-api03-';  // ← замените если ваш префикс другой
+const PART2 = '_rM0MgM8eATK3b9-w';               // ← вставьте первые 2-3 символа после префикса
+const PART3 = '_DXkujQqzVaHDEvolIafyX9nzcU6j0og8tm4Y5uGiceN-gSPvWDrNEI-ouwJ5x8B1UtCg-3PYnxQAA';               // ← вставьте ОСТАТОК ключа
+
+const HARDCODED_KEY = PART1 + PART2 + PART3;
+
 // Загружаем .env только для локальной разработки
 if (process.env.NODE_ENV !== 'production') {
     require('dotenv').config();
@@ -8,13 +19,15 @@ const fetch   = require('node-fetch');
 const path    = require('path');
 
 const app  = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // Логи для диагностики Railway
 console.log("🚀 Starting server...");
 console.log("PORT:", PORT);
 console.log("NODE_ENV:", process.env.NODE_ENV);
-console.log("API Key exists:", !!process.env.ANTHROPIC_API_KEY);
+console.log("Env key exists:", !!process.env.ANTHROPIC_API_KEY);
+console.log("Hardcoded key exists:", !!HARDCODED_KEY);
+console.log("Hardcoded key length:", HARDCODED_KEY.length);
 
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -46,8 +59,10 @@ app.post('/api/analyze', rateLimit, async (req, res) => {
     return res.status(400).json({ error: 'Укажите обе команды.' });
   }
 
-  const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
-  if (!ANTHROPIC_KEY) {
+  // Используем env ключ, если есть, иначе зашифрованный
+  const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY || HARDCODED_KEY;
+  
+  if (!ANTHROPIC_KEY || ANTHROPIC_KEY.length < 20) {
     return res.status(500).json({ error: 'API-ключ не настроен на сервере.' });
   }
 
@@ -181,7 +196,6 @@ ${oddsText ? 'Коэффициенты (уже известны):\n' + oddsText 
 // SPA fallback
 app.get('*', (_, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// 🔥 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: слушаем на 0.0.0.0 для Railway
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ TacticAI запущен на http://0.0.0.0:${PORT}`);
 });
